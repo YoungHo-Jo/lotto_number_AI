@@ -12,6 +12,9 @@ def showImage(res):
     cv2.destroyAllWindows()
     return
 
+# Show origina image of Lotto 
+showImage(img)
+
 # detect edges in the image
 edged = cv2.Canny(img, 10, 250)
 
@@ -19,6 +22,9 @@ edged = cv2.Canny(img, 10, 250)
 # pixels
 kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
 closed = cv2.morphologyEx(edged, cv2.MORPH_CLOSE, kernel)
+
+# Show closed image
+showImage(closed)
 
 # find contours (i.e. the 'outlines') in the image 
 (_, cnts, _) = cv2.findContours(closed.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -32,8 +38,11 @@ for c in cnts:
     # if the approximated contour has four points,
     # then assume that the contoure is a rectangle and thus has four vertices
     if len(approx) == 4:
-        # cv2.drawContours(img, [approx], -1, (0, 255, 0), 4)
-        # showImage(img)
+        # Draw contours 
+        cv2.drawContours(img, [approx], -1, (0, 255, 0), 4)
+
+        # Show image with the contours
+        showImage(img)
 
         # cv2.minAreaRect: returns values in the 
         # range [-90, 0); as the rectangle rotates clockwise the
@@ -61,23 +70,25 @@ for c in cnts:
         x, y, w, h = cv2.boundingRect(rotatedApprox)
         cropImg = rotated[(y + 10):(y+h - 10), (x + 10):(x+w - 10)]
 
-# showImage(cropImg)
+# Show the cropped image
+showImage(cropImg)
 
 # Convert image to binary
-# Threshold = 127
 (thresh, imBW) = cv2.threshold(cropImg, 200, 255, cv2.THRESH_BINARY)
 
 height, width, channel = imBW.shape
-        
-# showImage(imBW)
 
-# find two lines
+# Show the binary image of the cropped image        
+showImage(imBW)
+
+# Find two lines positoned around the numbers
 edges = cv2.Canny(imBW, 50, 150, apertureSize = 3)
 
 minLineLength = width - 500
 lines = cv2.HoughLinesP(image = edges, rho = 0.02, 
 theta = np.pi/500, threshold = 10, lines = np.array([]), minLineLength = minLineLength, maxLineGap = 5)
 
+# Find the lines that actually wanted 
 checkedLines = [] 
 for line in lines:
     x1, y1, x2, y2 = line[0]
@@ -98,18 +109,21 @@ for line in lines:
 y1 = checkedLines[0][0][1]
 y2 = checkedLines[1][0][1]
 
-# Swap
+# Swap the lines for disticting into upper and lower
 if y1 > y2:
     temp = y1
     y1 = y2
     y2 = temp
 
+# Crop the actuanl numbers 
 numSecImg = imBW[(y1 + 10):(y2 - 10), 10:(width - 10)]
 numSecImg = cv2.cvtColor(numSecImg, cv2.COLOR_BGR2GRAY)
 height, width = numSecImg.shape
-# showImage(numSecImg)
 
-# Projection
+# Show the image that acutally needed
+showImage(numSecImg)
+
+# Projection for cropping numbers for each
 horiProjection = np.zeros(height, dtype='int32')
 vertiProjection = np.zeros(width, dtype='int32')
 
@@ -128,6 +142,7 @@ with open("horiProjection.txt", "w") as hFile, open("vertiPorjection.txt", "w") 
     pair = []
     for idx, v in np.ndenumerate(horiProjection):
         idx = idx[0]  
+        # Write the horizontal projection data into text file 
         hFile.write(str(idx))
         hFile.write(' ')
         hFile.write(str(v))
@@ -143,6 +158,7 @@ with open("horiProjection.txt", "w") as hFile, open("vertiPorjection.txt", "w") 
     pair = []
     for idx, v in np.ndenumerate(vertiProjection):
         idx = idx[0]
+        # Wrtie the vertical projection data into text file
         vFile.write(str(idx))
         vFile.write(' ')
         vFile.write(str(v))
@@ -208,31 +224,17 @@ for heightStartEndPoint in numHeightStartEndPoints:
         lottoNumProjection = np.array([projectionRow])
     else:
         lottoNumProjection = np.append(lottoNumProjection, [projectionRow], axis=0)
+# ========== end of processing image ========= #
 
-
+# ========== Start of nueral network for learning numbers ======== #
 from perceptron import Perceptron
-
-if __name__ == '__main__':
-    X = np.array([
-        [0, 0],
-        [0, 1],
-        [1, 0],
-        [1, 1]
-    ])
-    d = np.array([
-        [0],
-        [0],
-        [0],
-        [1]
-    ])
-
-    perceptron = Perceptron(inputSize = 2)
-    perceptron.training(X, d)
 
 # Using projection data
 perceptron = Perceptron(inputSize=lottoNumProjection[0][0].size, numberOfNuerons=10, learningRate=0.10) 
 
 expectedOutput = np.array([])
+
+# Muallly 
 expectedValues = [
     [1, 5, 1, 8, 2, 0, 2, 6, 3, 7, 4, 4],
     [0, 1, 0, 7, 0 ,8, 1, 6, 2, 3, 2, 8],
